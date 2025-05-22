@@ -1,8 +1,5 @@
-yt-dlp
+
 ultralytics
 opencv-python
-easyocr
-pytesseract
 paddleocr
-
 streamlit
