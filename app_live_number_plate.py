@@ -1,4 +1,4 @@
-# With Aspect ratio panelty
+# Without Aspect ratio panelty
 # Updated
 import cv2
 import os
@@ -26,9 +26,7 @@ def score_plate_view(plate_img, bbox):
     sharpness = calculate_sharpness(plate_img)
     x1, y1, x2, y2 = bbox
     area = (x2 - x1) * (y2 - y1)
-    ar = (x2 - x1) / (y2 - y1 + 1e-6)
-    aspect_score = -abs(ar - 3.0) * 50
-    return sharpness + area * 0.01 + aspect_score
+    return sharpness + area * 0.01
 
 def read_plate_text(image, ocr):
     image = align_plate(image)
