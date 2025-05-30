@@ -16,21 +16,21 @@ def calculate_sharpness(image):
 def align_plate(plate_img):
     return cv2.resize(plate_img, (240, 80))
 
-def score_plate_view(plate_img, bbox):
+
+def score_plate_view(plate_img, bbox, ocr_confidence):
     sharpness = calculate_sharpness(plate_img)
     x1, y1, x2, y2 = bbox
     area = (x2 - x1) * (y2 - y1)
-    ar = (x2 - x1) / (y2 - y1 + 1e-6)
-    aspect_score = -abs(ar - 3.0) * 50
-    return sharpness + area * 0.01 + aspect_score
+    return sharpness + (area * 0.01) + (ocr_confidence * 100)  # Weight OCR confidence heavily
 
-def read_plate_text(image, ocr):
+def read_plate_text_with_confidence(image, ocr):
     image = align_plate(image)
     result = ocr.ocr(image, cls=False)
     if result and result[0]:
         lines = [line[1][0] for line in result[0] if line[1][1] > 0.5]
-        return " ".join(lines) if lines else "Unknown"
-    return "Unknown"
+        confidence = max([line[1][1] for line in result[0]]) if result[0] else 0
+        return " ".join(lines) if lines else "Unknown", confidence
+    return "Unknown", 0
 
 def draw_detections(frame, results, ocr, track_data, frame_idx):
     for box in results:
@@ -40,25 +40,28 @@ def draw_detections(frame, results, ocr, track_data, frame_idx):
             continue
 
         plate_img = frame[y1:y2, x1:x2]
-        score = score_plate_view(plate_img, (x1, y1, x2, y2))
+        # Run OCR once to get both number and confidence
+        number, ocr_confidence = read_plate_text_with_confidence(plate_img, ocr)
+        # Calculate score including OCR confidence
+        score = score_plate_view(plate_img, (x1, y1, x2, y2), ocr_confidence)
         current_best = track_data.get(track_id, {})
 
-        if not current_best or score > current_best.get("score", 0):
-            number = read_plate_text(plate_img, ocr)
-            if number and number != "Unknown":
-                track_data[track_id] = {
-                    "img": plate_img,
-                    "score": score,
-                    "number": number,
-                    "last_seen": frame_idx
-                }
-        else:
-            track_data[track_id]["last_seen"] = frame_idx
+        # Update if no previous data or better score
+        if number != "Unknown" and (not current_best or score > current_best.get("score", 0)):
+            track_data[track_id] = {
+                "img": plate_img,
+                "score": score,
+                "number": number,
+                "ocr_confidence": ocr_confidence,
+                "last_seen": frame_idx
+            }
 
+        # Draw annotations
         number_to_show = track_data.get(track_id, {}).get("number", "Detecting...")
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.putText(frame, number_to_show, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         cv2.putText(frame, f"ID: {track_id}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+
 
 def cleanup_tracks(track_data, finalized_list, finalized_ids, frame_idx, max_age=10):
     to_remove = []
