@@ -40,6 +40,7 @@ def draw_detections(frame, results, ocr, track_data, frame_idx):
     for box in results:
         x1, y1, x2, y2 = map(int, box.xyxy[0])
         track_id = int(box.id[0]) if hasattr(box, 'id') and box.id is not None else -1
+        confidence = box.conf[0] if hasattr(box, 'conf') and box.conf is not None else 0.0
         if track_id == -1:
             continue
 
@@ -62,6 +63,7 @@ def draw_detections(frame, results, ocr, track_data, frame_idx):
 
         number_to_show = track_data.get(track_id, {}).get("number", "Detecting...")
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(frame, f"Conf: {confidence:.2f}", (x1, y2 + 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
         cv2.putText(frame, number_to_show, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         cv2.putText(frame, f"ID: {track_id}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
@@ -140,7 +142,7 @@ def main():
             frame = frame_q.get(timeout=1)
 
             if (frame_skip == 0) or (frame_idx % frame_skip == 0):
-                results = model.track(frame, persist=True)
+                results = model.track(frame, persist=True, conf = 0.40)
                 for res in results:
                     draw_detections(frame, res.boxes, ocr, track_data, frame_idx)
                 #cleanup_tracks(track_data, final_plate_numbers, frame_idx)
