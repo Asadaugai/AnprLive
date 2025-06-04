@@ -58,22 +58,31 @@ def draw_detections(frame, results, ocr, track_data, frame_idx):
         cv2.putText(frame, number_to_show, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         cv2.putText(frame, f"ID: {track_id}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
-def cleanup_tracks(track_data, finalized_list, finalized_ids, frame_idx, max_age=10):
+
+
+
+from datetime import datetime
+
+def cleanup_tracks(track_data, finalized_list, finalized_ids, frame_idx, max_age=50):
     to_remove = []
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # e.g., "2025-06-04 11:40:00"
+
     for tid, data in track_data.items():
         if frame_idx - data.get("last_seen", 0) > max_age:
             if tid not in finalized_ids:
                 number = data.get("number", "")
                 if (number and number != "Unknown") and (number not in finalized_list):
                     finalized_list.append(number)
+                    # Store with timestamp
                     with open("final_plate_numbers.txt", "a") as f:
-                        f.write(number + "\n")
-                finalized_ids.add(tid)
-                if len(finalized_ids) > 25:
-                    finalized_ids.clear()
+                        f.write(f"{current_time},{number}\n")
+                    finalized_ids.add(tid)
             to_remove.append(tid)
+
     for tid in to_remove:
         del track_data[tid]
+
+
 
 def main():
     st.title("License Plate Detection from Uploaded Video")

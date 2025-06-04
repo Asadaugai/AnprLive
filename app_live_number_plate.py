@@ -68,23 +68,55 @@ def draw_detections(frame, results, ocr, track_data, frame_idx):
         cv2.putText(frame, f"ID: {track_id}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
 
+
+
+
+
+
+from datetime import datetime
+
 def cleanup_tracks(track_data, finalized_list, finalized_ids, frame_idx, max_age=50):
     to_remove = []
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # e.g., "2025-06-04 11:40:00"
 
     for tid, data in track_data.items():
-        # Check if this ID has been inactive (not seen in frame) for > max_age frames
         if frame_idx - data.get("last_seen", 0) > max_age:
             if tid not in finalized_ids:
                 number = data.get("number", "")
                 if (number and number != "Unknown") and (number not in finalized_list):
                     finalized_list.append(number)
+                    # Store with timestamp
                     with open("final_plate_numbers.txt", "a") as f:
-                        f.write(number + "\n")
-                finalized_ids.add(tid)
+                        f.write(f"{current_time},{number}\n")
+                    finalized_ids.add(tid)
             to_remove.append(tid)
 
     for tid in to_remove:
         del track_data[tid]
+
+
+
+def get_plates_by_date(selected_date):
+    plates = []
+    selected_date_str = selected_date.strftime("%Y-%m-%d")
+    try:
+        with open("final_plate_numbers.txt", "r") as f:
+            for line in f:
+                timestamp, plate = line.strip().split(",", 1)
+                if timestamp.startswith(selected_date_str):
+                    plates.append({"Timestamp": timestamp, "Plate Number": plate})
+    except FileNotFoundError:
+        pass
+    return plates
+
+
+
+
+
+
+
+
+
 
 def start_rtsp_stream(rtsp_url, width=1920, height=1080):
     cmd = [
@@ -115,65 +147,77 @@ def start_rtsp_stream(rtsp_url, width=1920, height=1080):
     threading.Thread(target=reader, daemon=True).start()
     return frame_q
 
+
+
+
+
+
+
 def main():
     st.title("License Plate Detection")
     rtsp_url = os.getenv("RTSP_URL")
     width, height = 1920, 1080
-    finalized_ids = set()  
+    finalized_ids = set()
 
     frame_q = start_rtsp_stream(rtsp_url, width, height)
-
     model = load_model()
     ocr = PaddleOCR(use_angle_cls=True, lang='en')
-
     track_data = {}
     final_plate_numbers = []
     frame_idx = 0
-
     frame_skip = 0
 
-    # Placeholders
-    frame_placeholder = st.empty()
-    live_placeholder = st.sidebar.empty()
-    finalized_placeholder = st.empty()
+    # Create tabs
+    tab1, tab2 = st.tabs(["Live Detection", "Search by Date"])
 
-    while True:
-        try:
-            frame = frame_q.get(timeout=1)
+    # Live Detection Tab
+    with tab1:
+        frame_placeholder = st.empty()
+        live_placeholder = st.sidebar.empty()
+        finalized_placeholder = st.empty()
 
-            if (frame_skip == 0) or (frame_idx % frame_skip == 0):
-                results = model.track(frame, persist=True, conf = 0.40)
-                for res in results:
-                    draw_detections(frame, res.boxes, ocr, track_data, frame_idx)
-                #cleanup_tracks(track_data, final_plate_numbers, frame_idx)
-                cleanup_tracks(track_data, final_plate_numbers, finalized_ids, frame_idx)
+        while True:
+            try:
+                frame = frame_q.get(timeout=1)
+                if (frame_skip == 0) or (frame_idx % frame_skip == 0):
+                    results = model.track(frame, persist=True, conf=0.40)
+                    for res in results:
+                        draw_detections(frame, res.boxes, ocr, track_data, frame_idx)
+                    cleanup_tracks(track_data, final_plate_numbers, finalized_ids, frame_idx)
 
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
 
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+                    with live_placeholder.container():
+                        st.subheader("Live Plates")
+                        if track_data:
+                            plates = [{"ID": tid, "Plate Number": data["number"]} for tid, data in track_data.items()]
+                            st.dataframe(plates, use_container_width=True, hide_index=True)
+                        else:
+                            st.write("Detecting...")
 
-                # Live plate display in sidebar
-                with live_placeholder.container():
-                    st.subheader("Live Plates")
-                    if track_data:
-                        plates = [{"ID": tid, "Plate Number": data["number"]} for tid, data in track_data.items()]
-                        st.dataframe(plates, use_container_width=True, hide_index=True)
-                    else:
-                        st.write("Detecting...")
+                    with finalized_placeholder.container():
+                        st.subheader("Finalized Plates")
+                        if final_plate_numbers:
+                            for plate in final_plate_numbers:
+                                st.write(plate)
+                        else:
+                            st.write("Finalized plates...")
 
-                # Finalized plate list below the video
-                with finalized_placeholder.container():
-                    st.subheader("Finalized Plates")
-                    if final_plate_numbers:
-                        for plate in final_plate_numbers:
-                            st.write(plate)
-                    else:
-                        st.write("finalized plates...")
+                frame_idx += 1
+            except queue.Empty:
+                continue
 
-            frame_idx += 1
-
-        except queue.Empty:
-            continue
+    # Search by Date Tab
+    with tab2:
+        st.subheader("Search Detected Plates by Date")
+        selected_date = st.date_input("Select Date", value=date.today())
+        if st.button("Search"):
+            plates = get_plates_by_date(selected_date)
+            if plates:
+                st.dataframe(plates, use_container_width=True, hide_index=True)
+            else:
+                st.write("No plates found for the selected date.")
 
 
 if __name__ == "__main__":

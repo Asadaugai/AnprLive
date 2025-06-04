@@ -17,7 +17,7 @@ import queue
 RTSP_URL = os.getenv("RTSP_URL")
 FFMPEG_PATH = r'C:\Asad Mehmood\ffmpeg-7.1.1-essentials_build\bin\ffmpeg.exe'
 WIDTH, HEIGHT = 1920, 1080
-FRAME_SKIP = 4
+FRAME_SKIP = 0
 VEHICLE_CLASSES = {"car", "motorcycle", "bus", "truck"}
 
 # Line 1 configuration (e.g., for incoming traffic)
@@ -134,7 +134,8 @@ def main():
                 st.session_state.frame_counter += 1
 
                 # Process detection only every FRAME_SKIP frame
-                if st.session_state.frame_counter % FRAME_SKIP == 0:
+                #if st.session_state.frame_counter % FRAME_SKIP == 0:
+                if FRAME_SKIP == 0 or st.session_state.frame_counter % FRAME_SKIP == 0:
                     st.session_state.processed_frames += 1
                     
                     # Run detection & tracking on frame
