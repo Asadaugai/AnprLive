@@ -1,4 +1,4 @@
-# Without Aspect ratio panelty
+# Without Aspect ratio panelty and add the feature of date filter
 # Updated
 import cv2
 import os
@@ -11,6 +11,8 @@ load_dotenv()
 from paddleocr import PaddleOCR
 import threading
 import queue
+from datetime import datetime
+import pandas as pd
 
 def load_model(model_path="license_plate_detector.pt"):
     return YOLO(model_path)
@@ -67,20 +69,19 @@ def draw_detections(frame, results, ocr, track_data, frame_idx):
         cv2.putText(frame, number_to_show, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         cv2.putText(frame, f"ID: {track_id}", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
-
 def cleanup_tracks(track_data, finalized_list, finalized_ids, frame_idx, max_age=50):
     to_remove = []
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     for tid, data in track_data.items():
-        # Check if this ID has been inactive (not seen in frame) for > max_age frames
         if frame_idx - data.get("last_seen", 0) > max_age:
             if tid not in finalized_ids:
                 number = data.get("number", "")
                 if (number and number != "Unknown") and (number not in finalized_list):
                     finalized_list.append(number)
                     with open("final_plate_numbers.txt", "a") as f:
-                        f.write(number + "\n")
-                finalized_ids.add(tid)
+                        f.write(f"{current_time},{number}\n")
+                    finalized_ids.add(tid)
             to_remove.append(tid)
 
     for tid in to_remove:
@@ -115,11 +116,25 @@ def start_rtsp_stream(rtsp_url, width=1920, height=1080):
     threading.Thread(target=reader, daemon=True).start()
     return frame_q
 
+def filter_plates_by_date(selected_date):
+    try:
+        with open("final_plate_numbers.txt", "r") as f:
+            lines = f.readlines()
+        filtered_plates = []
+        for line in lines:
+            timestamp, plate = line.strip().split(',')
+            date = timestamp.split(' ')[0]
+            if date == selected_date.strftime("%Y-%m-%d"):
+                filtered_plates.append({"Timestamp": timestamp, "Plate Number": plate})
+        return filtered_plates
+    except FileNotFoundError:
+        return []
+
 def main():
     st.title("License Plate Detection")
     rtsp_url = os.getenv("RTSP_URL")
     width, height = 1920, 1080
-    finalized_ids = set()  
+    finalized_ids = set()
 
     frame_q = start_rtsp_stream(rtsp_url, width, height)
 
@@ -129,25 +144,33 @@ def main():
     track_data = {}
     final_plate_numbers = []
     frame_idx = 0
-
     frame_skip = 0
 
     # Placeholders
     frame_placeholder = st.empty()
     live_placeholder = st.sidebar.empty()
+    date_filter_placeholder = st.sidebar.empty()
     finalized_placeholder = st.empty()
+
+    # Date filter in sidebar (outside the loop)
+    with date_filter_placeholder.container():
+        st.subheader("Filter Plates by Date")
+        selected_date = st.date_input("Select Date", value=datetime.today(), key="date_filter_input")
+        filtered_plates = filter_plates_by_date(selected_date)
+        if filtered_plates:
+            st.dataframe(filtered_plates, use_container_width=True, hide_index=True)
+        else:
+            st.write("No plates found for selected date.")
 
     while True:
         try:
             frame = frame_q.get(timeout=1)
 
             if (frame_skip == 0) or (frame_idx % frame_skip == 0):
-                results = model.track(frame, persist=True, conf = 0.40)
+                results = model.track(frame, persist=True, conf=0.40)
                 for res in results:
                     draw_detections(frame, res.boxes, ocr, track_data, frame_idx)
-                #cleanup_tracks(track_data, final_plate_numbers, frame_idx)
                 cleanup_tracks(track_data, final_plate_numbers, finalized_ids, frame_idx)
-
 
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
@@ -175,19 +198,5 @@ def main():
         except queue.Empty:
             continue
 
-
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
