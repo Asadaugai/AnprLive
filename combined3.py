@@ -254,6 +254,17 @@ def load_vehicle_counts():
         return enter_count, exit_count
     except (FileNotFoundError, ValueError):
         return 0, 0
+    
+
+def count_total_plates():
+    try:
+        with open("final_plate_numbers.txt", "r") as f:
+            lines = f.readlines()
+        return len([line for line in lines if line.strip()])
+    except FileNotFoundError:
+        return 0
+    
+
 
 def main():
     st.title("Vehicle Counting and License Plate Detection")
@@ -285,6 +296,20 @@ def main():
     # UI placeholders
     stream_placeholder = st.empty()
     # Create sidebar containers once, outside the loop
+    '''with st.sidebar:
+        st.subheader("Filter Plates by Date")
+        selected_date = st.date_input("Select Date", value=datetime.today(), key="date_filter_input")
+        filtered_plates = filter_plates_by_date(selected_date)
+        if filtered_plates:
+            st.dataframe(filtered_plates, use_container_width=True, hide_index=True)
+        else:
+            st.write("No plates found for selected date.")
+
+        live_plates_container = st.empty()  # Single container for live plates
+        count1_container = st.empty()
+        count2_container = st.empty()'''
+    
+    # Create sidebar containers
     with st.sidebar:
         st.subheader("Filter Plates by Date")
         selected_date = st.date_input("Select Date", value=datetime.today(), key="date_filter_input")
@@ -296,7 +321,15 @@ def main():
 
         live_plates_container = st.empty()  # Single container for live plates
         count1_container = st.empty()
-        count2_container = st.empty()
+        #count2_container = st.empty()
+        total_plates_container = st.empty()  # New container for total plates
+
+
+    # Initialize tracking data
+    track_data = {}
+    final_plate_numbers = []
+    finalized_ids = set()
+    frame_idx = 0
 
     # Initialize tracking data
     track_data = {}
@@ -368,6 +401,7 @@ def main():
 
                 # Update sidebar: Vehicle counts
                 count1_container.markdown(f"**Vehicle Count:** {st.session_state.vehicle_count_line1}")
+                total_plates_container.markdown(f"**Total Detected Plates:** {count_total_plates()}")
                 #count2_container.markdown(f"**Exit Count:** {st.session_state.vehicle_count_line2}")
 
                 frame_idx += 1
