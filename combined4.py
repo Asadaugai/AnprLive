@@ -213,32 +213,38 @@ def filter_plates_by_date(selected_date):
 
 def save_vehicle_count(direction, increment):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_date = current_time.split(' ')[0]
     try:
         with open(COUNT_FILE, "r") as f:
             lines = f.readlines()
-        enter_count = 0
-        exit_count = 0
+        counts_by_date = {}
         for line in lines:
             if line.strip():
-                time, dir_, count = line.strip().split(',')
-                if dir_ == "Enter":
-                    enter_count = int(count)
-                elif dir_ == "Exit":
-                    exit_count = int(count)
+                timestamp, dir_, count = line.strip().split(',')
+                date = timestamp.split(' ')[0]
+                if date not in counts_by_date:
+                    counts_by_date[date] = {"Enter": 0, "Exit": 0}
+                counts_by_date[date][dir_] = int(count)
     except (FileNotFoundError, ValueError):
-        enter_count = 0
-        exit_count = 0
+        counts_by_date = {}
+
+    if current_date not in counts_by_date:
+        counts_by_date[current_date] = {"Enter": 0, "Exit": 0}
 
     if direction == "Enter":
-        enter_count += increment
+        counts_by_date[current_date]["Enter"] += increment
     elif direction == "Exit":
-        exit_count += increment
+        counts_by_date[current_date]["Exit"] += increment
 
     with open(COUNT_FILE, "w") as f:
-        f.write(f"{current_time},Enter,{enter_count}\n")
-        f.write(f"{current_time},Exit,{exit_count}\n")
+        for date, counts in counts_by_date.items():
+            f.write(f"{date} 00:00:00,Enter,{counts['Enter']}\n")
+            f.write(f"{date} 00:00:00,Exit,{counts['Exit']}\n")
+
+
 
 def load_vehicle_counts():
+    current_date = datetime.now().strftime("%Y-%m-%d")
     try:
         with open(COUNT_FILE, "r") as f:
             lines = f.readlines()
@@ -246,11 +252,13 @@ def load_vehicle_counts():
         exit_count = 0
         for line in lines:
             if line.strip():
-                time, dir_, count = line.strip().split(',')
-                if dir_ == "Enter":
-                    enter_count = int(count)
-                elif dir_ == "Exit":
-                    exit_count = int(count)
+                timestamp, dir_, count = line.strip().split(',')
+                date = timestamp.split(' ')[0]
+                if date == current_date:
+                    if dir_ == "Enter":
+                        enter_count = int(count)
+                    elif dir_ == "Exit":
+                        exit_count = int(count)
         return enter_count, exit_count
     except (FileNotFoundError, ValueError):
         return 0, 0
@@ -263,6 +271,29 @@ def count_total_plates(selected_date):
         return len([line for line in lines if line.strip() and line.strip().split(',')[0].split(' ')[0] == selected_date.strftime("%Y-%m-%d")])
     except FileNotFoundError:
         return 0
+    
+
+
+def get_vehicle_count_by_date(selected_date):
+    try:
+        with open(COUNT_FILE, "r") as f:
+            lines = f.readlines()
+        enter_count = 0
+        exit_count = 0
+        for line in lines:
+            if line.strip():
+                timestamp, dir_, count = line.strip().split(',')
+                date = timestamp.split(' ')[0]
+                if date == selected_date.strftime("%Y-%m-%d"):
+                    if dir_ == "Enter":
+                        enter_count = int(count)
+                    elif dir_ == "Exit":
+                        exit_count = int(count)
+        return enter_count, exit_count
+    except (FileNotFoundError, ValueError):
+        return 0, 0
+    
+
     
 
 
@@ -389,10 +420,12 @@ def main():
                     else:
                         st.write("Detecting...")
 
-                # Update sidebar: Vehicle counts
-                count1_container.markdown(f"**Vehicle Count:** {st.session_state.vehicle_count_line1}")
+               
+                # Update sidebar: Vehicle counts for selected date
+                enter_count, exit_count = get_vehicle_count_by_date(selected_date)
+                count1_container.markdown(f"**Vehicle Count :** {enter_count}")
+                #count2_container.markdown(f"**Exit Count :** {exit_count}")
                 total_plates_container.markdown(f"**Total Detected Plates :** {count_total_plates(selected_date)}")
-                #count2_container.markdown(f"**Exit Count:** {st.session_state.vehicle_count_line2}")
 
                 frame_idx += 1
 
