@@ -18,7 +18,7 @@ load_dotenv()
 RTSP_URL = os.getenv("RTSP_URL")
 FFMPEG_PATH = r'C:\Asad Mehmood\ffmpeg-7.1.1-essentials_build\bin\ffmpeg.exe'
 WIDTH, HEIGHT = 1920, 1080
-FRAME_SKIP = 1
+FRAME_SKIP = 2
 VEHICLE_CLASSES = {"car", "motorcycle", "bus", "truck"}
 LINE1_PT1 = (100, 600)
 LINE1_PT2 = (1850, 600)
@@ -298,7 +298,8 @@ def get_vehicle_count_by_date(selected_date):
 
 
 def main():
-    st.title("Vehicle Counting and License Plate Detection")
+    st.image("images.jpeg", width=200)
+    st.title("PetroI")
 
     # Initialize session state with counts from file
     enter_count, exit_count = load_vehicle_counts()
@@ -326,6 +327,7 @@ def main():
 
     # UI placeholders
     stream_placeholder = st.empty()
+    today_plates_container = st.empty()  # Container for plates detected today
    
 
    
@@ -426,6 +428,16 @@ def main():
                 count1_container.markdown(f"**Vehicle Count :** {enter_count}")
                 #count2_container.markdown(f"**Exit Count :** {exit_count}")
                 total_plates_container.markdown(f"**Total Detected Plates :** {count_total_plates(selected_date)}")
+
+                # Update today's plates below video stream
+                with today_plates_container.container():
+                    st.subheader("License Plates Detected Today")
+                    today_date = datetime.now()
+                    today_plates = filter_plates_by_date(today_date)
+                    if today_plates:
+                        st.dataframe(pd.DataFrame(today_plates), use_container_width=True, hide_index=True)
+                    else:
+                        st.write("No license plates detected today.")
 
                 frame_idx += 1
 
