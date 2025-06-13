@@ -207,6 +207,7 @@ def filter_plates_by_date(selected_date):
             date = timestamp.split(' ')[0]
             if date == selected_date.strftime("%Y-%m-%d"):
                 filtered_plates.append({"Timestamp": timestamp, "Plate Number": plate})
+        filtered_plates.reverse()
         return filtered_plates
     except FileNotFoundError:
         return []
@@ -298,8 +299,36 @@ def get_vehicle_count_by_date(selected_date):
 
 
 def main():
-    st.image("images.jpeg", width=200)
-    st.title("PetroI")
+    st.markdown(
+    """
+    <style>
+    /* Main screen background */
+    [data-testid="stAppViewContainer"] {
+        background-color: #FFFFE6; /* Light yellow shade for entire main screen */
+    }
+    /* Main content area */
+    [data-testid="stVerticalBlock"] {
+        background-color: #F0FFFF; /* Light yellow shade */
+        padding: 20px;
+        border-radius: 10px;
+    }
+    /* Sidebar background */
+    [data-testid="stSidebar"] {
+        background-color: #E6F3FF; /* Light blue shade for sidebar */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+    )
+    
+    st.markdown(
+    """
+    <div style="text-align: center;">
+        <h1>Petro Eye</h1>
+    </div>
+    """,
+    unsafe_allow_html=True
+    )
 
     # Initialize session state with counts from file
     enter_count, exit_count = load_vehicle_counts()
@@ -328,12 +357,14 @@ def main():
     # UI placeholders
     stream_placeholder = st.empty()
     today_plates_container = st.empty()  # Container for plates detected today
+    
    
 
    
     
     # Create sidebar containers
     with st.sidebar:
+        st.image("images.jpeg", width=200)
         st.subheader("Filter Plates by Date")
         selected_date = st.date_input("Select Date", value=datetime.today(), key="date_filter_input")
         filtered_plates = filter_plates_by_date(selected_date)
@@ -346,6 +377,7 @@ def main():
         count1_container = st.empty()
         #count2_container = st.empty()
         total_plates_container = st.empty()  # New container for total plates
+        
 
 
     # Initialize tracking data
@@ -426,10 +458,9 @@ def main():
                 # Update sidebar: Vehicle counts for selected date
                 enter_count, exit_count = get_vehicle_count_by_date(selected_date)
                 count1_container.markdown(f"**Vehicle Count :** {enter_count}")
-                #count2_container.markdown(f"**Exit Count :** {exit_count}")
+                #count2_container.markdown(f"**Exit Count (Selected Date):** {exit_count}")
                 total_plates_container.markdown(f"**Total Detected Plates :** {count_total_plates(selected_date)}")
 
-                # Update today's plates below video stream
                 with today_plates_container.container():
                     st.subheader("License Plates Detected Today")
                     today_date = datetime.now()
