@@ -304,7 +304,7 @@ def main():
     <style>
     /* Main screen background */
     [data-testid="stAppViewContainer"] {
-        background-color: #FFFFE6; /* Light yellow shade for entire main screen */
+        background-color: #FFF8E1; /* Light yellow shade for entire main screen */
     }
     /* Main content area */
     [data-testid="stVerticalBlock"] {

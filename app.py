@@ -1,4 +1,7 @@
-import cv2
+
+
+
+'''import cv2
 import os
 import numpy as np
 import streamlit as st
@@ -13,7 +16,7 @@ import tempfile
 # ----------------- Configuration -----------------
 load_dotenv()
 WIDTH, HEIGHT = 1920, 1080
-FRAME_SKIP = 2
+FRAME_SKIP = 1
 VEHICLE_CLASSES = {"car", "motorcycle", "bus", "truck"}
 LINE1_PT1 = (100, 600)
 LINE1_PT2 = (1850, 600)
@@ -404,8 +407,7 @@ def main():
             st.write("Video processing completed.")
 
 if __name__ == "__main__":
-    main()
-
+    main()'''
 
     
 #Combined3/Count store in the file and show one streaming for both models
